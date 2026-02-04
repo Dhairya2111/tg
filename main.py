@@ -1,56 +1,39 @@
 import os
 import logging
-from flask import Flask
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# Enable logging
+# Configure logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
 )
-logger = logging.getLogger(__name__)
 
-# Flask app for Render's health check
-app = Flask(__name__)
+# Replace with your actual Bot Token from @BotFather
+TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
-@app.route('/')
-def health_check():
-    return "Bot is running!", 200
-
-# Telegram Bot Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Hi! I am your bot hosted on Render. Send me a message!')
+    """Send a message when the command /start is issued."""
+    user = update.effective_user
+    await update.message.reply_html(
+        rf"Hi {user.mention_html()}! I am your updated bot.
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"You said: {update.message.text}")
+Use /help to see what I can do."
+    )
 
-def main():
-    # Get token from environment variable
-    TOKEN = os.getenv("TELEGRAM_TOKEN")
-    if not TOKEN:
-        logger.error("No TELEGRAM_TOKEN found in environment variables!")
-        return
-
-    # Build the Application
-    application = Application.builder().token(TOKEN).build()
-
-    # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
-    # Start the bot
-    logger.info("Bot started...")
-    
-    # Run Flask in the background or just use polling for simplicity on Render
-    # Note: Render requires a web service to bind to a port, or use a Background Worker
-    application.run_polling()
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a message when the command /help is issued."""
+    await update.message.reply_text("Available Commands:\n/start - Start the bot\n/help - Show this help message")
 
 if __name__ == '__main__':
-    # For Render Web Service, we need to bind to a port
-    # If you use a 'Background Worker' on Render, you don't need Flask.
-    # If you use a 'Web Service', keep the Flask part.
-    import threading
-    port = int(os.environ.get("PORT", 8080))
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port)).start()
-    
-    main()
+    if TOKEN == "YOUR_BOT_TOKEN_HERE":
+        print("Error: Please set the BOT_TOKEN environment variable or update the script.")
+    else:
+        application = ApplicationBuilder().token(TOKEN).build()
+        
+        # Add handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        
+        print("Bot is running...")
+        application.run_polling()
