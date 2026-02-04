@@ -1,39 +1,47 @@
-import os
-import logging
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import os, asyncio, threading, requests
+from flask import Flask
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 
-# Configure logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+app = Flask(__name__)
+@app.route('/')
+def home(): return "Media-to-URL Bot is Running!", 200
 
-# Replace with your actual Bot Token from @BotFather
-TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+API_ID = int(os.getenv("API_ID", 0))
+API_HASH = os.getenv("API_HASH", "")
+SESSION = os.getenv("SESSION_STRING", "")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a message when the command /start is issued."""
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}! I am your updated bot.
+client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-Use /help to see what I can do."
-    )
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a message when the command /help is issued."""
-    await update.message.reply_text("Available Commands:\n/start - Start the bot\n/help - Show this help message")
-
-if __name__ == '__main__':
-    if TOKEN == "YOUR_BOT_TOKEN_HERE":
-        print("Error: Please set the BOT_TOKEN environment variable or update the script.")
-    else:
-        application = ApplicationBuilder().token(TOKEN).build()
+@client.on(events.NewMessage(outgoing=True))
+async def media_handler(event):
+    if event.media:
+        await event.edit("<code>🔄 Uploading to Telegraph...</code>", parse_mode='html')
+        file_path = await event.download_media()
         
-        # Add handlers
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        
-        print("Bot is running...")
-        application.run_polling()
+        try:
+            with open(file_path, 'rb') as f:
+                response = requests.post(
+                    "https://telegra.ph/upload", 
+                    files={'file': ('file', f, 'image/jpg')}
+                ).json()
+            
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            
+            if isinstance(response, list) and 'src' in response[0]:
+                url = f"https://telegra.ph{response[0]['src']}"
+                await event.edit(f"<b>✅ Link Generated:</b>\n<code>{url}</code>", parse_mode='html', link_preview=False)
+            else:
+                await event.edit("❌ <b>Upload Failed!</b>")
+        except Exception as e:
+            await event.edit(f"❌ <b>Error:</b> {str(e)}")
+
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.getenv("PORT", 8080)))
+
+if __name__ == "__main__":
+    threading.Thread(target=run_flask, daemon=True).start()
+    print("Media-to-URL Bot starting...")
+    client.start()
+    client.run_until_disconnected()
