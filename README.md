@@ -1,21 +1,30 @@
-# Telegram Bot for Render
+# Telegram Bot Repository
 
-This is a production-ready Telegram bot template designed to be deployed on [Render](https://render.com).
+This is a production-ready Telegram bot template.
 
 ## Setup Instructions
 
-1. **Get a Bot Token**: Message [@BotFather](https://t.me/botfather) on Telegram to get your API Token.
-2. **Create a GitHub Repo**: Push these files to your repository.
-3. **Deploy on Render**:
-   - Create a new **Web Service**.
-   - Connect your GitHub repository.
-   - **Runtime**: Python 3
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python main.py`
-4. **Environment Variables**:
-   - Add `TELEGRAM_TOKEN` in the Render dashboard under the 'Environment' tab.
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Set Environment Variable**:
+   - On Windows:
+     ```cmd
+     set BOT_TOKEN=your_token_here
+     ```
+   - On Linux/Mac:
+     ```bash
+     export BOT_TOKEN=your_token_here
+     ```
+
+3. **Run the Bot**:
+   ```bash
+   python main.py
+   ```
 
 ## Features
-- Includes a Flask server to satisfy Render's port binding requirement for Web Services.
-- Uses `python-telegram-bot` v20+ (async/await).
-- Auto-restarts on failure.
+- Basic `/start` and `/help` commands.
+- Logging enabled for debugging.
+- Uses `python-telegram-bot` v20+ (asyncio).
