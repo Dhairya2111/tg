@@ -1,40 +1,56 @@
 import os
 import logging
+from flask import Flask
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from dotenv import load_dotenv
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Load environment variables
-load_dotenv()
-TOKEN = os.getenv('TELEGRAM_TOKEN')
-
-# Logging setup
+# Enable logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
+# Flask app for Render's health check
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Bot is running!", 200
+
+# Telegram Bot Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a message when the command /start is issued."""
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}! I am your updated Telegram Bot."
-    )
+    await update.message.reply_text('Hi! I am your bot hosted on Render. Send me a message!')
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a message when the command /help is issued."""
-    await update.message.reply_text("Available commands:\n/start - Start the bot\n/help - Show this message")
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"You said: {update.message.text}")
+
+def main():
+    # Get token from environment variable
+    TOKEN = os.getenv("TELEGRAM_TOKEN")
+    if not TOKEN:
+        logger.error("No TELEGRAM_TOKEN found in environment variables!")
+        return
+
+    # Build the Application
+    application = Application.builder().token(TOKEN).build()
+
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+
+    # Start the bot
+    logger.info("Bot started...")
+    
+    # Run Flask in the background or just use polling for simplicity on Render
+    # Note: Render requires a web service to bind to a port, or use a Background Worker
+    application.run_polling()
 
 if __name__ == '__main__':
-    if not TOKEN:
-        print("Error: TELEGRAM_TOKEN not found in environment variables.")
-        exit(1)
-
-    application = ApplicationBuilder().token(TOKEN).build()
+    # For Render Web Service, we need to bind to a port
+    # If you use a 'Background Worker' on Render, you don't need Flask.
+    # If you use a 'Web Service', keep the Flask part.
+    import threading
+    port = int(os.environ.get("PORT", 8080))
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port)).start()
     
-    # Register handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    
-    print("Bot is running...")
-    application.run_polling()
+    main()
